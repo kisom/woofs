@@ -70,11 +70,11 @@ class woofs():
         if not os.access(filename, os.R_OK):
             err('could not open %s for reading!\n' % filename)
             sys.exit(1)
-    try:
-        f   = open(filename)
-    except IOError, e:
-        err('%s\n' % e.strmessage)
-        sys.exit(1)
-    
-    self.file   = f.read( )
+        try:
+            f   = open(filename)
+        except IOError, e:
+            err('%s\n' % e.strmessage)
+            sys.exit(1)
+        
+        self.file   = f.read( )
     
