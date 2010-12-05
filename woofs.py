@@ -30,6 +30,8 @@ class woofs():
         #   2. a configuration directory is passed but no certificate / key
         #   files are passed: use the specified configuration dir to get the
         #   certificate / key. Also checks permissions on files.
+        #   3. keyfiles are passed but no configuration dir: use the keyfiles
+        #   as the key files, no need for a configuration directory.
         if not confdir and not certificate and not keyfile:
             home    = os.path.expanduser('~')
             confdir = home + '/' + confdir_base
@@ -45,13 +47,18 @@ class woofs():
                     err('%s\n' % e.strerror)
                     sys.exit(1)
 
+            if not self._check_file_perm(confdir, dir = True):
+                err('invalid permissions on %s - should be 0700 or 0500\n' % confdir)
+                sys.exit(1)
+
             self.cert   = confdir + 'server.crt'
             self.key    = confdir + 'server.key'
+            self._check_keys()
+        elif confdir and not certificate and not keyfile:
+            pass
+        
 
-    if not confdir and certficate and keyfile:
-        pass
-
-
+            
     def _check_file_perm(self, filename, dir = False):
         valid_modes =  { True: [ 0700, 0500 ], False: [ 0600, 0400 ] }
         
@@ -64,6 +71,16 @@ class woofs():
             sys.exit(1)
         
         return mode in valid_modes[dir]
+
+
+    def _check_keys(self):
+        if not self._check_file_perm(self.cert):
+            err('invalid permissions on %s - should be 0600 or 0400\n' % self.cert)
+            sys.exit(1)
+            
+        if not self._check_file_perm(self.key):
+            err('invalid permissions on %s - should be 0600 or 0400\n' % self.key)
+            sys.exit(1)
 
 
     def load_file(self, filename):
