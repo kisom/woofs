@@ -254,5 +254,8 @@ class woofs():
                                           certfile      = self.cert,
                                           ssl_version   = ssl.PROTOCOL_TLSv1,
                                           server_side   = True)
-
+            self._serve_file(cstream)
     
+
+    def _serve_file(self, cstream):
+        pass
