@@ -173,8 +173,11 @@ class woofs():
         self.file   = f.read( )
         f.close()
     
-    def _setup_SSL(self):
+    def _setup_socket(self):
         self.serv    = socket.socket( )
+    
+    def _setup_SSL(self):
+        self._setup_socket()
     
     def _start_listen(self):
         pass
