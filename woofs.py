@@ -39,10 +39,10 @@ class woofs():
             confdir = home + '/' + confdir_base
             
             # ensure we have access to configuration directory
-            if not os.access(confdir, os.F_OK):
+            if not self._check_file_perm(confdir, dir = True):
                 try:
                     os.makedirs(confdir, 0700)
-                    if not os.access(confdir, os.F_OK):
+                    if not self._check_file_perm(confdir, dir = True):
                         err('(init) error creating configuration directory %s\n' % confdir)
                         sys.exit(1)
                 except OSError, e:
@@ -58,12 +58,27 @@ class woofs():
             self._check_keys()
         # case 2: confdir specified
         elif confdir and not certificate and not keyfile:
-            pass
+            if not self._check_file_perm(confdir, dir = True):
+                sys.exit(1)
         
+        # case 3: keys specified
+        elif not confdir and certificate and keyfile:
+            self.cert = certificate
+            self.key  = keyfile
+            self._check_keys()
+        
+        # every other case is invalid
+        else:
+            err('invalid paramters to init - check the documentation!\n')
+            sys.exit(1)
 
             
     def _check_file_perm(self, filename, dir = False):
-        valid_modes =  { True: [ 0700, 0500 ], False: [ 0600, 0400 ] }
+        """
+        Checks for the existance of a file / directory and that it has the proper
+        permissions. Returns true if everything is good, otherwise returns false.
+        """
+        valid_modes =  { True: [ 040700, 040500 ], False: [ 0600, 0400 ] }
         
         # basic access check
         if not dir:
@@ -72,15 +87,16 @@ class woofs():
             except IOError, e:
                 err('%s\n' % e.strerror)
                 return False
+            else:
+                f.close()
         else:
-            if not os.access(filename, os.R_OK):
-                err('no read permission on %s!\n' % filename)
+            if not os.access(filename, os.F_OK):
+                err('%s doesn\'t exist!\n' % filename)
                 return False
-            
-        # since we are only concerned with the first four digits in the mode,
-        # we get rid of any values greater than 08888, which is 010000        
+        
+        # file / dir mode check - mod gives us rwx permissions as well as directory check
         try:
-            mode    = os.stat()[0] % 010000
+            mode    = os.stat()[0] % 0100000
         except OSError, e:
             err('%s\n' % e.strerror)
             sys.exit(1)
