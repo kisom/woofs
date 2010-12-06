@@ -9,6 +9,8 @@ import os
 import ssl
 import socket
 import sys
+import tarfile
+import tempfile
 import traceback
 
 import httplib as client
@@ -21,8 +23,11 @@ class woofs():
     file            = None
     config          = None
     cert            = None
+    serv            = None
+    sock_type       = None
     
-    def __init__(self, certificate = None, keyfile = None, confdir = None):
+    
+    def __init__(self, filename = None, ipv6 = False, certificate = None, keyfile = None, confdir = None):
 
         # three valid cases:
         #   1. no args are passed to the class: use the configuration dir to
@@ -71,14 +76,38 @@ class woofs():
         else:
             err('invalid paramters to init - check the documentation!\n')
             sys.exit(1)
+        
+        # basic socket parameter setup
+        if ipv6:
+            self.sock_type  = socket.AF_INET6
+        else:
+            self.sock_type  = socket.AF_INET
+        
+        # load the file
+        self.load_file(filename)
+        
+        # set up an SSL connection
+        self._setup_SSL()
+        
+        # start the server
+        self._start_listen( )
 
-            
-    def _check_file_perm(self, filename, dir = False):
+    
+    def _is_dir(self, filename):
+        mode    = os.stat(filename)[0]
+        mode    = mode >> 14
+        return mode & 1
+                
+    def _check_file_perm(self, filename):
         """
         Checks for the existance of a file / directory and that it has the proper
         permissions. Returns true if everything is good, otherwise returns false.
         """
         valid_modes =  { True: [ 040700, 040500 ], False: [ 0600, 0400 ] }
+        if self._is_dir(filename):
+            dir = True
+        else:
+            dir = False
         
         # basic access check
         if not dir:
@@ -118,11 +147,35 @@ class woofs():
         if not os.access(filename, os.R_OK):
             err('could not open %s for reading!\n' % filename)
             sys.exit(1)
-        try:
-            f   = open(filename)
-        except IOError, e:
-            err('%s\n' % e.strmessage)
-            sys.exit(1)
+        if self._is_dir(filename):
+            files   = os.listdir(filename)
+            temp_f  = tempfile.NamedTemporaryFile()
+            
+            tarball = tarfile.open(temp_f.name, mode = 'w:gz')
+            for f in files:
+                tarball.add('%s/%s' % (filename, f))
+            tarball.close()
+            os.lseek(temp_f.fileno(), 0, os.SEEK_SET)
+            
+            f           = open(temp_f.name)
+            self.file   = f.read()
+            
+            f.close()
+            temp_f.close()
+            
+        else:
+            try:
+                f   = open(filename)
+            except IOError, e:
+                err('%s\n' % e.strmessage)
+                sys.exit(1)
         
         self.file   = f.read( )
+        f.close()
+    
+    def _setup_SSL(self):
+        self.serv    = socket.socket( )
+    
+    def _start_listen(self):
+        pass
     
