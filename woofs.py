@@ -32,6 +32,8 @@ class woofs():
         #   certificate / key. Also checks permissions on files.
         #   3. keyfiles are passed but no configuration dir: use the keyfiles
         #   as the key files, no need for a configuration directory.
+        #
+        # case 1 - default call
         if not confdir and not certificate and not keyfile:
             home    = os.path.expanduser('~')
             confdir = home + '/' + confdir_base
@@ -54,6 +56,7 @@ class woofs():
             self.cert   = confdir + 'server.crt'
             self.key    = confdir + 'server.key'
             self._check_keys()
+        # case 2: confdir specified
         elif confdir and not certificate and not keyfile:
             pass
         
@@ -62,8 +65,20 @@ class woofs():
     def _check_file_perm(self, filename, dir = False):
         valid_modes =  { True: [ 0700, 0500 ], False: [ 0600, 0400 ] }
         
+        # basic access check
+        if not dir:
+            try:
+                f   = open(filename)
+            except IOError, e:
+                err('%s\n' % e.strerror)
+                return False
+        else:
+            if not os.access(filename, os.R_OK):
+                err('no read permission on %s!\n' % filename)
+                return False
+            
         # since we are only concerned with the first four digits in the mode,
-        # we get rid of any values greater than 08888, which is 010000
+        # we get rid of any values greater than 08888, which is 010000        
         try:
             mode    = os.stat()[0] % 010000
         except OSError, e:
