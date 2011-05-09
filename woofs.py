@@ -20,7 +20,7 @@ import BaseHTTPServer as server
 err     = sys.stderr.write
 
 class woofs():
-    confdir_base    = '.config/woofs/'
+    confdir_base    = None
     file            = None
     config          = None
     cert            = None
@@ -35,6 +35,8 @@ class woofs():
     def __init__(self, filename = None, ipv6 = False, ip = None, ext = False,
                  port = None, downloads = 1, certificate = None, keyfile = None,
                  confdir = None):
+    
+        confdir_base = '.config/woofs/'
 
         # three valid cases:
         #   1. no args are passed to the class: use the configuration dir to
@@ -51,17 +53,17 @@ class woofs():
             confdir = home + '/' + confdir_base
             
             # ensure we have access to configuration directory
-            if not self._check_file_perm(confdir, dir = True):
+            if not self._check_file_perm(confdir):
                 try:
                     os.makedirs(confdir, 0700)
-                    if not self._check_file_perm(confdir, dir = True):
+                    if not self._check_file_perm(confdir):
                         err('(init) error creating configuration directory %s\n' % confdir)
                         sys.exit(1)
                 except OSError, e:
                     err('%s\n' % e.strerror)
                     sys.exit(1)
 
-            if not self._check_file_perm(confdir, dir = True):
+            if not self._check_file_perm(confdir):
                 err('invalid permissions on %s - should be 0700 or 0500\n' % confdir)
                 sys.exit(1)
 
@@ -70,7 +72,7 @@ class woofs():
             self._check_keys()
         # case 2: confdir specified
         elif confdir and not certificate and not keyfile:
-            if not self._check_file_perm(confdir, dir = True):
+            if not self._check_file_perm(confdir):
                 sys.exit(1)
         
         # case 3: keys specified
@@ -125,6 +127,9 @@ class woofs():
         """
         Checks for the existance of a file / directory and that it has the proper
         permissions. Returns true if everything is good, otherwise returns false.
+        
+        Parameters:
+            filename: the filename to check
         """
         valid_modes =  { True: [ 040700, 040500 ], False: [ 0600, 0400 ] }
         if self._is_dir(filename):
@@ -259,3 +264,4 @@ class woofs():
 
     def _serve_file(self, cstream):
         pass
+

@@ -1,6 +1,12 @@
-woofs.py
-written by Kyle Isom <coder@kyleisom.net>
+Web Onetime Offer File Securely
+-------------------------------
 
-program behaving the same as the woof script written by 
-Simon Budig <simon@budig.de> but providing SSL encryption. 
+author: Kyle Isom <coder@kyleisom.net>
+
+quick overview:
+python program behaving the same as the woof script written by 
+Simon Budig <simon@budig.de> but providing SSL encryption.
+
+what does it do?
+woofs allows you to quickly offer a file for download on your machine. 
 
