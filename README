@@ -1,5 +1,5 @@
 Web Onetime Offer File Securely
--------------------------------
+--------------------------------------------------------------------------------
 
 author: Kyle Isom <coder@kyleisom.net>
 
@@ -7,6 +7,31 @@ quick overview:
 python program behaving the same as the woof script written by 
 Simon Budig <simon@budig.de> but providing SSL encryption.
 
-what does it do?
-woofs allows you to quickly offer a file for download on your machine. 
 
+--------------------------------------------------------------------------------
+what does it do?
+woofs allows you to quickly offer a file for download on your machine. it offers
+the ability to select the port and number of times the file can be downloaded
+before the HTTPS server shuts down (which defaults to 1).
+
+
+--------------------------------------------------------------------------------
+how do i use it?
+the simplest way is to use something like this:
+$ ./woofs.py --port 443 --downloads 2 file.tar.bz
+
+this looks for a configuration file at ${HOME}/.config/woofs/config which should
+look something like:
+$ cat ~/.config/woofs/config
+key: /etc/ssl/private/server.key
+cert: /etc/ssl/server.crt
+
+you can also specify a configuration file using the --config option, or a key
+and certificate using --key and --cert to point to the files.
+
+by default, woofs uses the internal LAN address (i.e. 192.168.1.2). you can
+have it use your external IP address using --external.
+
+
+--------------------------------------------------------------------------------
+how do i generate ssl keys?
