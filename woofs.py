@@ -2,266 +2,172 @@
 """
 Serve a single file one time over https.
 
+see the README.
 python 2 version.
 """
 
+# note: branched after commit f8e9bea1916da34d07c0e1e039936e8edc1e759f to
+# do a rewrite of the code
+
 import os
-import pdb
-import ssl
-import socket
 import sys
-import tarfile
-import tempfile
-import urllib2
 
-import httplib as client
-import BaseHTTPServer as server
+def err(err_message):
+    sys.stderr.write('%s\n' % err_message)
 
-err     = sys.stderr.write
+# constants
+confdir_base        = os.path.join('.config', 'woofs')
 
 class woofs():
-    confdir_base    = None
-    file            = None
-    config          = None
-    cert            = None
-    serv            = None
-    sock_type       = None
-    addr            = None
-    external        = None
+    
+    conf_file       = None
     port            = None
-    downloads       = None
+    key             = None
+    cert            = None
+    data            = None
+    external        = False
     
-    
-    def __init__(self, filename = None, ipv6 = False, ip = None, ext = False,
-                 port = None, downloads = 1, certificate = None, keyfile = None,
-                 confdir = None):
-    
-        confdir_base = '.config/woofs/'
-
-        # three valid cases:
-        #   1. no args are passed to the class: use the configuration dir to
-        #   get the server certficate and key.
-        #   2. a configuration directory is passed but no certificate / key
-        #   files are passed: use the specified configuration dir to get the
-        #   certificate / key. Also checks permissions on files.
-        #   3. keyfiles are passed but no configuration dir: use the keyfiles
-        #   as the key files, no need for a configuration directory.
-        #
-        # case 1 - default call
-        if not confdir and not certificate and not keyfile:
-            home    = os.path.expanduser('~')
-            confdir = home + '/' + confdir_base
+    def __init__(self, config_file = None, port = None, keyfile = None,
+                 certfile = None, filename = None, external = False):
+        
+        # load keys - either via config file or key/cert files
+        if not certfile and not keyfile and not certfile:
+            # default case: use the default config file
             
-            # ensure we have access to configuration directory
-            if not self._check_file_perm(confdir):
-                try:
-                    os.makedirs(confdir, 0700)
-                    if not self._check_file_perm(confdir):
-                        err('(init) error creating configuration directory %s\n' % confdir)
-                        sys.exit(1)
-                except OSError, e:
-                    err('%s\n' % e.strerror)
-                    sys.exit(1)
-
-            if not self._check_file_perm(confdir):
-                err('invalid permissions on %s - should be 0700 or 0500\n' % confdir)
+            # build path and check permissions
+            conf_file = os.path.join(os.path.expanduser('~'),
+                                     '.config', 'woofs', 'config')
+            if not self.__check_fperms__(conf_file):
+                err('bad permissions on config file!')
                 sys.exit(1)
-
-            self.cert   = confdir + 'server.crt'
-            self.key    = confdir + 'server.key'
-            self._check_keys()
-        # case 2: confdir specified
-        elif confdir and not certificate and not keyfile:
-            if not self._check_file_perm(confdir):
-                sys.exit(1)
-        
-        # case 3: keys specified
-        elif not confdir and certificate and keyfile:
-            self.cert = certificate
-            self.key  = keyfile
-            self._check_keys()
-        
-        # every other case is invalid
+                
+            keyfile, certfile = self.__load_config__(conf_file)
+            self.key, self.cert = self.__load_keys__(keyfile, certfile)
+                
+        elif config_file and not keyfile and not certfile:
+            # config file passed in
+            pass
+        elif not config_file and keyfile and certfile:
+            # key/cert filenames passed in
+            pass
         else:
-            err('invalid paramters to init - check the documentation!\n')
+            err('Invalid initialisation options -- cannot initialise keys!')
             sys.exit(1)
-        
-        # basic socket parameter setup
-        if ipv6:
-            self.sock_type  = socket.AF_INET6
-        else:
-            self.sock_type  = socket.AF_INET
     
-        # get the IP address
-        if ip:
-            self.addr       = ip
-        elif ext:
-            self.addr       = self._get_external_addr()
-        else:
-            self.addr       = self._get_local_addr()
+    
+    def __is_dir__(self, filename):
+        # test if filename is a directory
+        try:
+            mode    = os.stat(filename)[0]
+        except OSError, e:
+            err(str(e))
+            sys.exit(1)
             
-        # setting ports
-        if port:
-            self.port       = port
-        else:
-            self.port       = 8000 + int(random.random() * 1000)
-        
-        self.downloads      = downloads
-        
-        # load the file
-        self.load_file(filename)
-        
-        # set up an SSL connection
-        self._setup_SSL()
-        
-        # start the server
-        self._start_listen( )
-
-    
-    def _is_dir(self, filename):
-        mode    = os.stat(filename)[0]
         mode    = mode >> 14
         return mode & 1
-                
-    def _check_file_perm(self, filename):
+
+    def __check_fperms__(self, filename):
         """
-        Checks for the existance of a file / directory and that it has the proper
-        permissions. Returns true if everything is good, otherwise returns false.
+        Checks that the permissions on a file are secure.
         
-        Parameters:
-            filename: the filename to check
+        Returns True if permissions are secure and False otherwise.
         """
-        valid_modes =  { True: [ 040700, 040500 ], False: [ 0600, 0400 ] }
-        if self._is_dir(filename):
-            dir = True
-        else:
-            dir = False
         
-        # basic access check
-        if not dir:
-            try:
-                f   = open(filename)
-            except IOError, e:
-                err('%s\n' % e.strerror)
-                return False
-            else:
-                f.close()
-        else:
-            if not os.access(filename, os.F_OK):
-                err('%s doesn\'t exist!\n' % filename)
-                return False
+        # we use True/False to check whether we're using a directory or not
+        # i.e., valid_modes[dir] where dir is a boolean that is True if filename
+        # is a directory.
+        valid_modes = { True: [ 40700, 040500 ], False: [ 0600, 0400] }
+        dir         = self.__is_dir__(filename)
         
-        # file / dir mode check - mod gives us rwx permissions as well as directory check
         try:
-            mode    = os.stat()[0] % 0100000
+            mode    = os.stat(filename)[0]
+            mode   %= 0100000
         except OSError, e:
-            err('%s\n' % e.strerror)
+            err(str(e))
             sys.exit(1)
         
         return mode in valid_modes[dir]
-
-
-    def _check_keys(self):
-        if not self._check_file_perm(self.cert):
-            err('invalid permissions on %s - should be 0600 or 0400\n' % self.cert)
-            sys.exit(1)
-            
-        if not self._check_file_perm(self.key):
-            err('invalid permissions on %s - should be 0600 or 0400\n' % self.key)
-            sys.exit(1)
-
-
-    def load_file(self, filename):
-        if not os.access(filename, os.R_OK):
-            err('could not open %s for reading!\n' % filename)
-            sys.exit(1)
-        if self._is_dir(filename):
-            files   = os.listdir(filename)
-            temp_f  = tempfile.NamedTemporaryFile()
-            
-            tarball = tarfile.open(temp_f.name, mode = 'w:gz')
-            for f in files:
-                tarball.add('%s/%s' % (filename, f))
-            tarball.close()
-            os.lseek(temp_f.fileno(), 0, os.SEEK_SET)
-            
-            f           = open(temp_f.name)
-            self.file   = f.read()
-            
-            f.close()
-            temp_f.close()
-            
-        else:
-            try:
-                f   = open(filename)
-            except IOError, e:
-                err('%s\n' % e.strmessage)
-                sys.exit(1)
         
-        self.file   = f.read( )
+    def __load_config__(self, filename):
+        """
+        Load a configuration file, parsing out the key and cert options.
+        
+        Returns a string tuple of the keyfile path and cert file path.
+        """
+        
+        cfg         = { }
+        print 'loading config from', filename
+        try:
+            f       = open(filename)
+            files   = f.read().split()
+            
+            # attempt to load cert and key config options from file
+            for line in files:
+                # only split the first word because Windows uses the colon in
+                # some pathnames
+                config      = line.split(':', 1)
+                config      = [ line.strip() for line in config ]
+                
+                # ensure we have a valid config value
+                if not config[0] in [ 'key', 'cert' ]:
+                    continue
+                else:
+                    cfg[config[0]] = config[1]
+            
+        
+        except IOError, e:
+            err('error reading config file! error returned was:')
+            err(str(e))
+            sys.exit(1)
+
+        if not 'key' in cfg or not 'cert' in cfg:
+            err('invalid config file - check the README!')
+            sys.exit(1)
+            
+        # return the key and cert file paths
+        return cfg['key'], cfg['cert']
+        
+    
+    def __load_keys__(self, keyfile, certfile):
+        try:
+            k   = open(keyfile, 'rb').read()
+            c   = open(certfile, 'rb').read()
+        
+        except IOError, e:
+            err('unable to load key/cert! error was:')
+            err(str(e))
+            sys.exit(1)
+
+
+def setup_default_config():
+    """
+    sets up a default configuration file. on success, prints a success message.
+    on failure, exits the program.
+    """
+    conf_file   = os.path.join(os.path.expanduser('~'), confdir_base, 'config')
+    
+    if not os.access(os.path.basename(conf_file), os.W_OK):
+        err('cannot write to %s' % os.path.basename(conf_file))
+        
+        os.makedirs(os.path.dirname(conf_file), 0700)
+        if not os.access(os.path.dirname(conf_file), os.W_OK):
+            err('\tdirectory creation failed!')
+            sys.exit(1)
+
+    try:
+        f = open(conf_file, 'w')
+        f.write('key: /etc/ssl/private/server.key\n')
+        f.write('cert: /etc/ssl/server.crt\n')
         f.close()
+    except OSError, e:
+        err(str(e))
+        sys.exit(1)
     
-    def _get_local_addr(self):
+    print 'wrote configuration file at', conf_file,
+    print 'with default key locations...'
+    return
 
-        if self.sock_type == socket.AF_INET:
-            # by sending a UDP datagram to a test net, it is possible to 
-            # determine the default route and the IP address.
-            ip_list     = [ ]                       # list of IP addresses 
-            test_nets   = [ '', '', ''  ]           # RFC 5735 test nets
-            
-            for ip in test_nets:
-               sock     = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-               sock.connect((ip, 0))
-               addr     = sock.getsockname()[0]
-               sock.close()
-               if addr in ip_list: return addr
-               candidates.append(ip_addr)
-        
-        elif self.sock_type == socket.AF_INET6:
-            # flowinfo is zero as per RFC 2553
-            test_net6   = ('2001:DB8::0', 4141, 0, 32)  # RFC 3949 IPv6
-                                                        # documentation prefix
-            sock        = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
-            sock.connect(test_net6)
-            addr        = sock.getsockname()[0]
-            sock.close()
-            return addr
     
-        # bad juju had to happen to get here
-        else:
-            err('the server has an invalid socket type!\n')
-            sys.exit(2)
-
-    def _get_external_addr(self):
-        return urllib2.urlopen('www.whatismyip.org').read()
+if __name__ == '__main__':
+    w = woofs()
     
-    def _setup_socket(self):
-        if socket.AF_INET == self.sock_type:
-            serv_addr   = (self.addr, self.port)
-        elif socket.AF_INET6 == self.sock_type:
-            serv_addr   = (self.addr, self.port, 0, 0)
-        
-        self.serv    = socket.socket(self.sock_type, socket.SOCK_STREAM)
-        self.serv.bind(serv_addr)
-        self.serv.listen(1)
-    
-    def _setup_SSL(self):
-        pass
-        
-    
-    def _start_listen(self):
-        self._setup_socket()
-        
-        for i in range(downloads):
-            (client_socket, client_addr)    = self.serv.accept()
-            cstream     = ssl.wrap_socket(client_socket,
-                                          keyfile       = self.key,
-                                          certfile      = self.cert,
-                                          ssl_version   = ssl.PROTOCOL_TLSv1,
-                                          server_side   = True)
-            self._serve_file(cstream)
-    
-
-    def _serve_file(self, cstream):
-        pass
-
