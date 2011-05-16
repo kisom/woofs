@@ -10,6 +10,8 @@ import socket
 import sys
 import time
 
+
+
 class Server():
     
     sock    = None                              # server socket
@@ -17,6 +19,7 @@ class Server():
     port    = None                              # port to listen on
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
+    index   = None
     
     def __init__(self, port, file):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -29,6 +32,7 @@ class Server():
                 print 'address in use -- delaying...'
                 if e.errno == 98: time.sleep(1)
             else:
+                print 'connected!'
                 connected = True
                 
         self.sock.listen(1)
@@ -37,6 +41,10 @@ class Server():
         try:
             f           = open(file)
             self.data   = f.read()
+            f.close()
+            
+            f           = open('index.tpl')
+            self.index  = f.read()  % 'NOT SSL'
         except IOError, e:
             print e
             sys.exit(1)
@@ -52,19 +60,26 @@ class Server():
         data    = client.recv(1024)
         
         print 'data:', data
-        if not data.startswith('GET / '):
+        if not data.startswith('GET /'):
             return
-        
+        elif data.startswith('GET /file'):
+            print 'send file!'
+            self.send_file(client, self.data)
+        elif data.startswith('GET / '):
+            print 'send index!'
+            self.send_file(client, self.index)
         else:
-            print 'data length:', len(self.data)
-            print 'chunk size: ', self.chunk
-            for i in range(0, len(self.data), self.chunk):
-                limit   = ( i + self.chunk if len(self.data[i:]) >= self.chunk
-                                           else i + len(self.data[i:]) )
-                print i, limit
-                client.send(self.data[i:limit])
+            self.send_file(client, '404 - not found!')
+        
+    
+    def send_file(self, client, file):
+        for i in range(0, len(file), self.chunk):
+            limit   = ( i + self.chunk if len(file[i:]) >= self.chunk
+                                       else i + len(file[i:]) )
+            client.send(file[i:limit])
         
         client.close()
+        
     
     def shutdown(self):
         self.sock.shutdown(socket.SHUT_RDWR)
