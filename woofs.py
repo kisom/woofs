@@ -99,7 +99,7 @@ class woofs():
         print 'loading config from', filename
         try:
             f       = open(filename)
-            files   = f.read().split()
+            files   = f.read().split('\n')
             
             # attempt to load cert and key config options from file
             for line in files:
@@ -137,6 +137,9 @@ class woofs():
             err('unable to load key/cert! error was:')
             err(str(e))
             sys.exit(1)
+        
+        else:
+            return k, c
 
 
 def setup_default_config():
