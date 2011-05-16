@@ -7,6 +7,7 @@ quick overview:
 python program behaving the same as the woof script written by 
 Simon Budig <simon@budig.de> but providing SSL encryption.
 
+license: dual ISC / public domain license. see LICENSE.
 
 --------------------------------------------------------------------------------
 what does it do?
@@ -35,3 +36,21 @@ have it use your external IP address using --external.
 
 --------------------------------------------------------------------------------
 how do i generate ssl keys?
+
+$ openssl genrsa -out ~/.woofs/server.key 2048
+$ openssl req -new -key ~/.woofs/server.key -out ~/.woofs/server.csr
+
+at this point you have two options -
+    1. submit the certificate signature request to a trusted CA, who will give
+    you a signed certificate in exchange for money, or
+    2. self-sign your certificate. there are a number of security issues here
+    but the easiest way around them is to have the end-user verify the SSL
+    fingerprint.
+
+if you choose to self-sign, at this point you would need to issue the following:
+$ openssl x509 -req -days 365 -in ~/.woofs/server.csr \
+  -signkey ~/.woofs/server.key -out ~/.woofs/server.cr
+
+it is critical that ~/.woofs (or whatever folder you put the key in) must have
+secure permissions: i recommend the files inside have a mode of 0600, and the
+directory have the permissions of 0700.
