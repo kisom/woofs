@@ -11,7 +11,10 @@ python 2 version.
 # do a rewrite of the code
 
 import os
+import random
+import ssl
 import sys
+from http_server import HTTPServer
 
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
@@ -22,15 +25,24 @@ confdir_base        = os.path.join('.config', 'woofs')
 class woofs():
     
     conf_file       = None
-    port            = None
     key             = None
+    keyfile         = None
     cert            = None
-    data            = None
+    certfile        = None
     external        = False
     
-    def __init__(self, config_file = None, port = None, keyfile = None,
+    def __init__(self, config_file = None, hport = None, keyfile = None,
                  certfile = None, filename = None, external = False):
         
+        if not filename:
+            print 'need a filename!'
+            sys.exit(1)
+        
+        if not hport:
+            hport   = random.randint(8000, 9000)
+        
+        # initialise http server
+        self    = HTTPServer(port = hport, file = filename)
         # load keys - either via config file or key/cert files
         if not certfile and not keyfile and not certfile:
             # default case: use the default config file
@@ -43,7 +55,11 @@ class woofs():
                 sys.exit(1)
                 
             keyfile, certfile = self.__load_config__(conf_file)
-            self.key, self.cert = self.__load_keys__(keyfile, certfile)
+            self.keyfile, self.certfile = keyfile, certfile
+            
+            # not necessary right meow, ssl call requires filepaths, not
+            # the file contents
+            #self.key, self.cert = self.__load_keys__(keyfile, certfile)
                 
         elif config_file and not keyfile and not certfile:
             # config file passed in

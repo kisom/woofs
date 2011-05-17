@@ -4,6 +4,9 @@
 # author: kyle isom <coder@kyleisom.net>
 #
 # simple fileserver that displays a line of text and a link to a file
+# usage:
+#   ./http_server <file to serve>
+
 
 import os
 import socket
@@ -12,7 +15,7 @@ import time
 
 
 
-class Server():
+class HTTPServer():
     
     sock    = None                              # server socket
     data    = None                              # stores the file to serve
@@ -87,11 +90,12 @@ class Server():
         
         
 
+# test code
 if __name__ == '__main__':
     
     if not len(sys.argv) == 2: sys.exit(1)
     
-    server  = Server(port = 8000, file = sys.argv[1])
+    server  = HTTPServer(port = 8000, file = sys.argv[1])
     try:
         server.run()
     except KeyboardInterrupt:
