@@ -10,17 +10,161 @@ python 2 version.
 # note: branched after commit f8e9bea1916da34d07c0e1e039936e8edc1e759f to
 # do a rewrite of the code
 
+import argparse
 import os
 import random
+import socket
 import ssl
 import sys
-from http_server import HTTPServer
+import time
+#from http_server import HTTPServer
 
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
 
 # constants
 confdir_base        = os.path.join('.config', 'woofs')
+
+class HTTPServer():
+    """
+    This represents a very bare-bones HTTP server representing the entirety
+    of the functionality required by woofs.
+    """
+    
+    sock    = None                              # server socket
+    data    = None                              # stores the file to serve
+    port    = None                              # port to listen on
+    chunk   = 4096                              # number of bytes to send at a
+                                                # time
+    index   = None                              # holds the index page
+    secure  = False                             # using SSL?
+    wrapper = None                              # the SSL wrapper function
+    keyfile = None                              # private key filename
+    certfile = None                             # certificate filename
+    
+    maxdown = None 
+
+    # the index template
+    indextpl= """
+<!doctype html>
+<html>
+<head>
+<meta charset = "utf-8">
+<title>woofs file share</title>
+</head>
+
+<body>
+    <p>SSL cert fingerprint: %s</p>
+    <p>file: <a href="file/">download</a></p>
+</body>
+</html>
+    """
+
+    def __init__(self, port, file, max_downloads = 0):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        connected = False
+
+        self.port = port
+
+        if self.secure:
+            self.keyfile    = None
+            self.certfile   = None
+            self.wrapper    = None
+        
+        while not connected:
+            try:
+                self.sock.bind(('', port))
+            except socket.error, e:
+                print '[!] socket error:', e
+                time.sleep(1)
+            else:
+                print '[+] connected!'
+                connected = True
+                
+        self.sock.listen(1)
+        
+        # load file to be served
+        try:
+            f           = open(file)
+            self.data   = f.read()
+            f.close()
+            
+        except IOError, e:
+            print e
+            sys.exit(1)
+        else:
+            f.close()
+            
+            if not self.secure:
+                self.index = self.indextpl % 'NOT SSL'
+            else:
+                self.index = self.indextpl % self.get_ssl_fp()
+
+        self.maxdown = max_downloads
+
+    def setup_ssl(self, certfile = None, keyfile = None):
+        if not self.secure or not certfile or not keyfile: return False
+
+        self.certfile = certfile
+        self.keyfile  = keyfile
+        self.wrapper  = 'ssl.wrap_socket( client, server_side = True, '
+        self.wrapper += 'certfile = self.certfile, keyfile = self.keyfile, '
+        self.wrapper += 'ssl_version = ssl.PROTOCOL_TLSv1, '
+        self.wrapper += 'cert_reqs = ssl.CERT_NONE, ca_certs = self.certfile )'
+
+        return True
+
+    def run(self):
+        while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
+        downloads  = 0
+
+        while eval(while_cond):
+            client, addr = self.sock.accept()
+            if self.secure:
+                try:
+                    client   = eval(self.wrapper)
+                except ssl.SSLError as e:
+                    if e.errno == 1: continue
+                    # on error make sure the socket gets closed!
+                    client.close()
+                    print '[!] exception in ssl - closed socket and reraising!'
+                    raise
+                    
+            if self.serve(client, addr): downloads += 1
+    
+    def serve(self, client, addr):
+        data    = client.recv(1024)
+        
+        print 'data:', data
+        if not data.startswith('GET /'):
+            return False
+        elif data.startswith('GET /file'):
+            print '[+] send file!'
+            self.send_file(client, self.data)
+            return True
+        elif data.startswith('GET / '):
+            print '[+] send index!'
+            self.send_file(client, self.index)
+            return False
+        else:
+            self.send_file(client, '404 - not found!')
+            return False
+        
+    
+    def send_file(self, client, file):
+        for i in range(0, len(file), self.chunk):
+            limit   = ( i + self.chunk if len(file[i:]) >= self.chunk
+                                       else i + len(file[i:]) )
+            client.send(file[i:limit])
+        
+        client.close()
+        
+    
+    def shutdown(self):
+        self.sock.shutdown(socket.SHUT_RDWR)
+        self.sock.close()
+
+
 
 class woofs():
     
@@ -58,8 +202,6 @@ class woofs():
                 sys.exit(1)
                 
             keyfile, certfile = self.__load_config__(conf_file)
-            print '[+] keyfile:', keyfile
-            print '[+] certfile:', certfile
             self.keyfile, self.certfile = keyfile, certfile
             
             # not necessary right meow, ssl call requires filepaths, not
@@ -123,7 +265,6 @@ class woofs():
         """
         
         cfg         = { }
-        print 'loading config from', filename
         try:
             f       = open(filename)
             files   = f.read().split('\n')
@@ -168,6 +309,10 @@ class woofs():
         else:
             return k, c
 
+    def run(self):
+        self.server.run()
+        self.server.shutdown()
+
 
 def setup_default_config():
     """
@@ -197,7 +342,9 @@ def setup_default_config():
     print 'with default key locations...'
     return
 
+
+
     
 if __name__ == '__main__':
-    w = woofs()
+    pass
     
