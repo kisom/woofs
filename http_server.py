@@ -101,7 +101,7 @@ class HTTPServer():
         self.wrapper  = 'ssl.wrap_socket( client, server_side = True, '
         self.wrapper += 'certfile = self.certfile, keyfile = self.keyfile, '
         self.wrapper += 'ssl_version = ssl.PROTOCOL_TLSv1, '
-        self.wrapper += 'cert_reqs = ssl.CERT_NONE )'
+        self.wrapper += 'cert_reqs = ssl.CERT_NONE, ca_certs = self.certfile )'
 
         return True
 
@@ -114,7 +114,8 @@ class HTTPServer():
             if self.secure:
                 try:
                     client   = eval(self.wrapper)
-                except:
+                except ssl.SSLError as e:
+                    if e.errno == 1: continue
                     # on error make sure the socket gets closed!
                     client.close()
                     print '[!] exception in ssl - closed socket and reraising!'
