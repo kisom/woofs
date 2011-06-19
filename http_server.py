@@ -29,6 +29,9 @@ class HTTPServer():
                                                 # time
     index   = None                              # holds the index page
     secure  = False                             # using SSL?
+    wrapper = None                              # the SSL wrapper function
+    keyfile = None                              # private key filename
+    certfile = None                             # certificate filename
     
     maxdown = None 
 
@@ -63,10 +66,10 @@ class HTTPServer():
             try:
                 self.sock.bind(('', port))
             except socket.error, e:
-                print 'address in use -- delaying...'
-                if e.errno == 98: time.sleep(1)
+                print '[!] socket error:', e
+                time.sleep(1)
             else:
-                print 'connected!'
+                print '[+] connected!'
                 connected = True
                 
         self.sock.listen(1)
@@ -90,14 +93,15 @@ class HTTPServer():
 
         self.maxdown = max_downloads
 
-    def setup_ssl(self, certfile, keyfile):
-        if not self.secure: return False
+    def setup_ssl(self, certfile = None, keyfile = None):
+        if not self.secure or not certfile or not keyfile: return False
 
         self.certfile = certfile
         self.keyfile  = keyfile
         self.wrapper  = 'ssl.wrap_socket( client, server_side = True, '
         self.wrapper += 'certfile = self.certfile, keyfile = self.keyfile, '
-        self.wrapper += 'ssl_version = ssl.PROTOCOL_TLSv1 )'
+        self.wrapper += 'ssl_version = ssl.PROTOCOL_TLSv1, '
+        self.wrapper += 'cert_reqs = ssl.CERT_NONE )'
 
         return True
 
@@ -108,7 +112,14 @@ class HTTPServer():
         while eval(while_cond):
             client, addr = self.sock.accept()
             if self.secure:
-                client   = eval(self.wrapper)
+                try:
+                    client   = eval(self.wrapper)
+                except:
+                    # on error make sure the socket gets closed!
+                    client.close()
+                    print '[!] exception in ssl - closed socket and reraising!'
+                    raise
+                    
             if self.serve(client, addr): downloads += 1
     
     def serve(self, client, addr):
@@ -118,11 +129,11 @@ class HTTPServer():
         if not data.startswith('GET /'):
             return False
         elif data.startswith('GET /file'):
-            print 'send file!'
+            print '[+] send file!'
             self.send_file(client, self.data)
             return True
         elif data.startswith('GET / '):
-            print 'send index!'
+            print '[+] send index!'
             self.send_file(client, self.index)
             return False
         else:

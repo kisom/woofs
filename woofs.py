@@ -58,11 +58,13 @@ class woofs():
                 sys.exit(1)
                 
             keyfile, certfile = self.__load_config__(conf_file)
+            print '[+] keyfile:', keyfile
+            print '[+] certfile:', certfile
             self.keyfile, self.certfile = keyfile, certfile
             
             # not necessary right meow, ssl call requires filepaths, not
             # the file contents
-            #self.key, self.cert = self.__load_keys__(keyfile, certfile)
+            self.key, self.cert = self.__load_keys__(keyfile, certfile)
                 
         elif config_file and not keyfile and not certfile:
             # config file passed in
@@ -74,6 +76,11 @@ class woofs():
             err('Invalid initialisation options -- cannot initialise keys!')
             sys.exit(1)
     
+        self.server.secure = True
+        self.server.setup_ssl( keyfile = self.keyfile, certfile = self.certfile )
+
+        print '[+] woofs listening on port %d...' % hport
+        
     
     def __is_dir__(self, filename):
         # test if filename is a directory
