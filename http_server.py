@@ -13,7 +13,7 @@ import os
 import socket
 import sys
 import time
-
+import ssl
 
 
 class HTTPServer():
@@ -51,6 +51,13 @@ class HTTPServer():
     def __init__(self, port, file, max_downloads = 0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connected = False
+
+        self.port = port
+
+        if self.secure:
+            self.keyfile    = None
+            self.certfile   = None
+            self.wrapper    = None
         
         while not connected:
             try:
@@ -83,6 +90,16 @@ class HTTPServer():
 
         self.maxdown = max_downloads
 
+    def setup_ssl(self, certfile, keyfile):
+        if not self.secure: return False
+
+        self.certfile = certfile
+        self.keyfile  = keyfile
+        self.wrapper  = 'ssl.wrap_socket( client, server_side = True, '
+        self.wrapper += 'certfile = self.certfile, keyfile = self.keyfile, '
+        self.wrapper += 'ssl_version = ssl.PROTOCOL_TLSv1 )'
+
+        return True
 
     def run(self):
         while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
@@ -90,6 +107,8 @@ class HTTPServer():
 
         while eval(while_cond):
             client, addr = self.sock.accept()
+            if self.secure:
+                client   = eval(self.wrapper)
             if self.serve(client, addr): downloads += 1
     
     def serve(self, client, addr):
