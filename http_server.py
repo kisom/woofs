@@ -8,6 +8,7 @@
 #   ./http_server <file to serve>
 
 
+import getopt
 import os
 import socket
 import sys
@@ -29,7 +30,7 @@ class HTTPServer():
     index   = None                              # holds the index page
     secure  = False                             # using SSL?
     
-    
+    maxdown = None 
 
     # the index template
     indextpl= """
@@ -47,7 +48,7 @@ class HTTPServer():
 </html>
     """
 
-    def __init__(self, port, file):
+    def __init__(self, port, file, max_downloads = 0):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connected = False
         
@@ -79,25 +80,35 @@ class HTTPServer():
                 self.index = self.indextpl % 'NOT SSL'
             else:
                 self.index = self.indextpl % self.get_ssl_fp()
+
+        self.maxdown = max_downloads
+
+
     def run(self):
-        while True:
+        while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
+        downloads  = 0
+
+        while eval(while_cond):
             client, addr = self.sock.accept()
-            self.serve(client, addr)
+            if self.serve(client, addr): downloads += 1
     
     def serve(self, client, addr):
         data    = client.recv(1024)
         
         print 'data:', data
         if not data.startswith('GET /'):
-            return
+            return False
         elif data.startswith('GET /file'):
             print 'send file!'
             self.send_file(client, self.data)
+            return True
         elif data.startswith('GET / '):
             print 'send index!'
             self.send_file(client, self.index)
+            return False
         else:
             self.send_file(client, '404 - not found!')
+            return False
         
     
     def send_file(self, client, file):
@@ -118,9 +129,20 @@ class HTTPServer():
 # test code
 if __name__ == '__main__':
     
-    if not len(sys.argv) == 2: sys.exit(1)
+    downloads = 0
+
+    opts, args = getopt.getopt(sys.argv[1:], 'n:')
+
+    if not args: sys.exit(1)
+
+    for opt, val in opts:
+        opt = opt.lstrip('-')
+
+        if 'n' is opt:                              # max number of downloads
+            downloads = int(val)
     
-    server  = HTTPServer(port = 8000, file = sys.argv[1])
+    server  = HTTPServer(port = 8000, file = args[0],
+                         max_downloads = downloads)
     try:
         server.run()
     except KeyboardInterrupt:
