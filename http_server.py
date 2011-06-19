@@ -16,14 +16,37 @@ import time
 
 
 class HTTPServer():
+    """
+    This represents a very bare-bones HTTP server representing the entirety
+    of the functionality required by woofs.
+    """
     
     sock    = None                              # server socket
     data    = None                              # stores the file to serve
     port    = None                              # port to listen on
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
-    index   = None
+    index   = None                              # holds the index page
+    secure  = False                             # using SSL?
     
+    
+
+    # the index template
+    indextpl= """
+<!doctype html>
+<html>
+<head>
+<meta charset = "utf-8">
+<title>woofs file share</title>
+</head>
+
+<body>
+    <p>SSL cert fingerprint: %s</p>
+    <p>file: <a href="file/">download</a></p>
+</body>
+</html>
+    """
+
     def __init__(self, port, file):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         connected = False
@@ -46,14 +69,16 @@ class HTTPServer():
             self.data   = f.read()
             f.close()
             
-            f           = open('index.tpl')
-            self.index  = f.read()  % 'NOT SSL'
         except IOError, e:
             print e
             sys.exit(1)
         else:
             f.close()
-        
+            
+            if not self.secure:
+                self.index = self.indextpl % 'NOT SSL'
+            else:
+                self.index = self.indextpl % self.get_ssl_fp()
     def run(self):
         while True:
             client, addr = self.sock.accept()
