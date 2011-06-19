@@ -29,10 +29,12 @@ class woofs():
     keyfile         = None
     cert            = None
     certfile        = None
-    external        = False
+    external        = None
+    server          = None
     
     def __init__(self, config_file = None, hport = None, keyfile = None,
-                 certfile = None, filename = None, external = False):
+                 certfile = None, filename = None, external = False,
+                 downloads = 0):
         
         if not filename:
             print 'need a filename!'
@@ -42,7 +44,8 @@ class woofs():
             hport   = random.randint(8000, 9000)
         
         # initialise http server
-        self    = HTTPServer(port = hport, file = filename)
+        self.server = HTTPServer(port = hport, file = filename,
+                                 max_downloads = downloads)
         # load keys - either via config file or key/cert files
         if not certfile and not keyfile and not certfile:
             # default case: use the default config file
@@ -51,7 +54,7 @@ class woofs():
             conf_file = os.path.join(os.path.expanduser('~'),
                                      '.config', 'woofs', 'config')
             if not self.__check_fperms__(conf_file):
-                err('bad permissions on config file!')
+                err('bad permissions on config file: %s!' % conf_file)
                 sys.exit(1)
                 
             keyfile, certfile = self.__load_config__(conf_file)
