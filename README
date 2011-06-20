@@ -1,6 +1,5 @@
 Web Onetime Offer File Securely
 --------------------------------------------------------------------------------
-
 author: Kyle Isom <coder@kyleisom.net>
 
 quick overview:
@@ -8,6 +7,7 @@ python program behaving the same as the woof script written by
 Simon Budig <simon@budig.de> but providing SSL encryption.
 
 license: dual ISC / public domain license. see LICENSE.
+
 
 --------------------------------------------------------------------------------
 what does it do?
@@ -17,6 +17,7 @@ before the HTTPS server shuts down (which defaults to 1).
 
 dependencies:
     * argparse
+
 
 --------------------------------------------------------------------------------
 how do i use it?
@@ -35,6 +36,9 @@ and certificate using --key and --cert to point to the files.
 by default, woofs uses the internal LAN address (i.e. 192.168.1.2). you can
 have it use your external IP address using --external.
 
+the most likely cause of problems will be incorrect permissions - see the
+section on permissions below.
+
 
 --------------------------------------------------------------------------------
 how do i generate ssl keys?
@@ -51,8 +55,16 @@ at this point you have two options -
 
 if you choose to self-sign, at this point you would need to issue the following:
 $ openssl x509 -req -days 365 -in ~/.woofs/server.csr \
-  -signkey ~/.woofs/server.key -out ~/.woofs/server.cr
+  -signkey ~/.woofs/server.key -out ~/.woofs/server.crt
+
+
+--------------------------------------------------------------------------------
+a note on file permissions
 
 it is critical that ~/.woofs (or whatever folder you put the key in) must have
 secure permissions: i recommend the files inside have a mode of 0600, and the
 directory have the permissions of 0700.
+
+Files need to have secure permissions; the private files ('config' and the
+private key) should be 0400 or 0600, while public files should be 644.
+
