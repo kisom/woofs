@@ -432,8 +432,8 @@ def setup_default_config():
         err(str(e))
         sys.exit(1)
     
-    print 'wrote configuration file at', conf_file,
-    print 'with default key locations...'
+    print '\t[+] wrote configuration file at', conf_file,
+    print '\t(with default key locations...)'
     return
 
 
@@ -460,11 +460,11 @@ if __name__ == '__main__':
                         help = 'number of downloads to offer')
     parser.add_argument('-e', '--external', action = 'store_true',
                         help = 'use external IP address instead using a local '+
-                               'address')
+e                               'address')
     parser.add_argument('-6', '--ipv6', action = 'store_true',
                         help = 'use IPv6')
     parser.add_argument('-k', '--key',  help = 'path to SSL private key')
-    parser.add_argument('-m', '--make-default', action = 'store_true',
+    parser.add_argument('-m', '--makedefault', action = 'store_true',
                         help = 'make default config')
     parser.add_argument('-p', '--port', action = 'store',
                         help = 'port to listen on')
@@ -497,6 +497,11 @@ if __name__ == '__main__':
 
     if args.address:
         disponly = True
+
+    if args.makedefault:
+        print '[+] setting up a default configuration...'
+        setup_default_config()
+        exit(0)
 
     if args.ipv6:
         ipv6 = args.ipv6
