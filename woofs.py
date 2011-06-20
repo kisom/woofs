@@ -460,7 +460,7 @@ if __name__ == '__main__':
                         help = 'number of downloads to offer')
     parser.add_argument('-e', '--external', action = 'store_true',
                         help = 'use external IP address instead using a local '+
-e                               'address')
+                               'address')
     parser.add_argument('-6', '--ipv6', action = 'store_true',
                         help = 'use IPv6')
     parser.add_argument('-k', '--key',  help = 'path to SSL private key')
