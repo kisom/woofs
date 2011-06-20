@@ -207,6 +207,10 @@ class HTTPServer():
                     client   = eval(self.wrapper)
                 except ssl.SSLError as e:
                     if e.errno == 1: continue
+
+                    if 'EOF occurred in violation of protocol' in str(e):
+                        continue
+                    
                     # on error make sure the socket gets closed!
                     client.close()
                     print '[!] exception in ssl - closed socket and reraising!'
@@ -397,7 +401,7 @@ class woofs():
     def get_addr(self):
         addr = None
         
-        if self.external:
+        if not self.external:
             addr = self.server._get_local_addr()
         else:
             addr = self.server._get_external_addr()
@@ -405,7 +409,14 @@ class woofs():
         print '[+] link: https://%s:%d' % (addr, self.server.port)
 
     def run(self):
-        self.server.run()
+        print '[+] running https server...'
+        self.get_addr()
+        try:
+            self.server.run()
+        except KeyboardInterrupt as e:
+            return
+        finally:
+            print '[+] shutting down...'
 
 
 def setup_default_config():
@@ -431,12 +442,12 @@ def setup_default_config():
     except OSError, e:
         err(str(e))
         sys.exit(1)
+
+    os.chmod(conf_file, 0600)
     
-    print '\t[+] wrote configuration file at', conf_file,
-    print '(with default key locations...)'
+    print '\t[+] wrote configuration file at', conf_file
+    print '\t    (with default key locations...)'
     return
-
-
 
     
 if __name__ == '__main__':
@@ -476,33 +487,24 @@ if __name__ == '__main__':
     # build options
     if args.config:
         config = args.config
-
     if args.port:
         port   = int(args.port)
-
     if args.downloads:
         downloads = int(args.downloads)
-
     if args.key:
         keyfile = args.key
-    
     if args.cert:
         certfile = args.cert
-
     if args.file:
         filename = args.file
-
     if args.external:
         external = args.external
-
     if args.address:
         disponly = True
-
     if args.makedefault:
         print '[+] setting up a default configuration...'
         setup_default_config()
         exit(0)
-
     if args.ipv6:
         ipv6 = args.ipv6
 
