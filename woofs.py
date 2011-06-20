@@ -112,11 +112,7 @@ class HTTPServer():
                 sys.exit(1)
             else:
                 f.close()
-            
-            if not self.secure:
-                self.index = self.indextpl % 'NOT SSL'
-            else:
-                self.index = self.indextpl % self.get_ssl_fp()
+
 
         self.maxdown = max_downloads
 
@@ -199,6 +195,11 @@ class HTTPServer():
     def run(self):
         while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
         downloads  = 0
+
+        if not self.secure:
+            self.index = self.indextpl % 'NOT SSL'
+        else:
+            self.index = self.indextpl % 'fingerprint support isn\'t working yet'
 
         while eval(while_cond):
             client, addr = self.sock.accept()
