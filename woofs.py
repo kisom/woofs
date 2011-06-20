@@ -66,7 +66,7 @@ class HTTPServer():
     """
 
     def __init__(self, port, file, max_downloads = 0, ipv6 = False,
-                 local = True):
+                 local = True, no_file_override = False):
 
         if not local:
             self.external = True
@@ -101,16 +101,17 @@ class HTTPServer():
         self.sock.listen(1)
         
         # load file to be served
-        try:
-            f           = open(file)
-            self.data   = f.read()
-            f.close()
+        if filename:
+            try:
+                f           = open(file)
+                self.data   = f.read()
+                f.close()
             
-        except IOError, e:
-            print e
-            sys.exit(1)
-        else:
-            f.close()
+            except IOError, e:
+                print e
+                sys.exit(1)
+            else:
+                f.close()
             
             if not self.secure:
                 self.index = self.indextpl % 'NOT SSL'
@@ -259,9 +260,9 @@ class woofs():
     
     def __init__(self, config_file = None, hport = None, keyfile = None,
                  certfile = None, filename = None, external = False,
-                 ipv6 = False, downloads = 0):
+                 ipv6 = False, downloads = 0, no_file_override = False):
         
-        if not filename:
+        if not filename and not no_file_override:
             print 'need a filename!'
             sys.exit(1)
         
@@ -270,7 +271,8 @@ class woofs():
         
         # initialise http server
         self.server = HTTPServer(port = hport, file = filename, ipv6 = ipv6,
-                                 local = not external, max_downloads = downloads)
+                                 local = not external, max_downloads = downloads,
+                                 no_file_override = no_file_override)
         # load keys - either via config file or key/cert files
         if not certfile and not keyfile and not certfile:
             # default case: use the default config file
@@ -303,7 +305,9 @@ class woofs():
         self.server.setup_ssl( keyfile = self.keyfile, certfile = self.certfile )
 
         print '[+] woofs listening on port %d...' % hport
-        print '\twill serve %s %d times...' % ( filename, downloads )
+        
+        if filename:
+            print '\twill serve %s %d times...' % ( filename, downloads )
     
     def __is_dir__(self, filename):
         # test if filename is a directory
@@ -444,6 +448,7 @@ if __name__ == '__main__':
     config    = None
     external  = False
     ipv6      = False
+    disponly  = False
 
     # argument handling
     parser = argparse.ArgumentParser(description = 'web onetime offer file ' +
@@ -459,10 +464,13 @@ if __name__ == '__main__':
     parser.add_argument('-6', '--ipv6', action = 'store_true',
                         help = 'use IPv6')
     parser.add_argument('-k', '--key',  help = 'path to SSL private key')
+    parser.add_argument('-m', '--make-default', action = 'store_true',
+                        help = 'make default config')
     parser.add_argument('-p', '--port', action = 'store',
                         help = 'port to listen on')
     parser.add_argument('-r', '--cert', help = 'path to SSL public certificate')
-    parser.add_argument('file', help = 'the file to serve')
+    parser.add_argument('file', nargs = '?', default = None,
+                        help = 'the file to serve')
     args = parser.parse_args()
 
     # build options
@@ -487,12 +495,16 @@ if __name__ == '__main__':
     if args.external:
         external = args.external
 
+    if args.address:
+        disponly = True
+
     if args.ipv6:
         ipv6 = args.ipv6
-    
+
+    print '[+] starting web onetime offer file securely...'
     w = woofs(config_file = config, hport = port, keyfile = keyfile,
               certfile = certfile, filename = filename, downloads = downloads,
-              external = external, ipv6 = ipv6)
+              external = external, ipv6 = ipv6, no_file_override = disponly)
 
     if args.address:
         w.get_addr()
