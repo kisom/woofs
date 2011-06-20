@@ -433,7 +433,7 @@ def setup_default_config():
         sys.exit(1)
     
     print '\t[+] wrote configuration file at', conf_file,
-    print '\t(with default key locations...)'
+    print '(with default key locations...)'
     return
 
 
