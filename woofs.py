@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# file: woofs.py
+# author: kyle isom <coder@kyleisom.net>
 """
 Serve a single file one time over https.
 
@@ -17,7 +19,7 @@ import socket
 import ssl
 import sys
 import time
-#from http_server import HTTPServer
+import urllib2
 
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
@@ -32,8 +34,11 @@ class HTTPServer():
     """
     
     sock    = None                              # server socket
+    sock_t  = None                              # server socket type
+    ipv6    = None                              # IPv6 support 
     data    = None                              # stores the file to serve
     port    = None                              # port to listen on
+    external= None
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
     index   = None                              # holds the index page
@@ -60,12 +65,24 @@ class HTTPServer():
 </html>
     """
 
-    def __init__(self, port, file, max_downloads = 0):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def __init__(self, port, file, max_downloads = 0, ipv6 = False,
+                 local = True):
+
+        if not local:
+            self.external = True
+        else:
+            self.external = False
+            
+        self.ipv6 = ipv6
+        if not ipv6:
+            self.sock_t = socket.AF_INET
+        else:
+            self.sock_t = socket.AF_INET6
+
+        self.port = port        
+        self._setup_socket()
         connected = False
-
-        self.port = port
-
+        
         if self.secure:
             self.keyfile    = None
             self.certfile   = None
@@ -102,6 +119,70 @@ class HTTPServer():
 
         self.maxdown = max_downloads
 
+    def _setup_socket(self):
+        if self.external == False:
+            self.addr = self._get_local_addr()
+        else:
+            self.addr = self._get_external_addr()
+
+        print '\t[+] connecting to %s:%s' % (self.addr, self.port)
+        if socket.AF_INET == self.sock_t:
+            serv_addr = (self.addr, self.port)
+        elif socket.AF_INET6 == self.sock_t:
+            serv_addr = (self.addr, self.port, 0, 0)
+        
+        self.sock = socket.socket(self.sock_t, socket.SOCK_STREAM)
+
+    def _get_local_addr(self):
+
+        # no IPv6 just yet
+        if self.sock_t == socket.AF_INET:
+            # by sending a UDP datagram to a test net, it is possible to
+            # determine the default route and the IP address.
+            ip_list = [ ] # list of IP addresses
+
+            # RFC 5735 test nets
+            test_nets = ["192.0.2.0", "198.51.100.0", "203.0.113.0"]
+            
+            
+            for ip in test_nets:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect((ip, 4141))
+                addr = sock.getsockname()[0]
+                sock.close()
+               
+                if addr in ip_list:
+                    return addr
+
+                ip_list.append(addr)
+
+            return ip_list[0]
+
+        elif self.sock_t == socket.AF_INET6:
+            # flowinfo is zero as per RFC 2553
+            test_net6 = ('2001:DB8::0', 4141, 0, 32) # RFC 3949 IPv6
+                                                     # documentation prefix
+            sock = socket.socket(socket.AF_INET6, socket.SOCK_DGRAM)
+            sock.connect(test_net6)
+            addr = sock.getsockname()[0]
+            sock.close()
+            return addr
+    
+        # bad juju had to happen to get here
+        else:
+            err('the server has an invalid socket type!\n')
+            sys.exit(2)
+
+    def _get_external_addr(self):
+        addr = None
+        for i in range(3):
+            try:
+                addr = urllib2.urlopen('http://www.whatismyip.org').read()
+            except urllib2.HTTPError as e:
+                time.sleep(2 * i)
+            else:
+                return addr
+            
     def setup_ssl(self, certfile = None, keyfile = None):
         if not self.secure or not certfile or not keyfile: return False
 
@@ -135,7 +216,6 @@ class HTTPServer():
     def serve(self, client, addr):
         data    = client.recv(1024)
         
-        print 'data:', data
         if not data.startswith('GET /'):
             return False
         elif data.startswith('GET /file'):
@@ -175,10 +255,11 @@ class woofs():
     certfile        = None
     external        = None
     server          = None
+    sock_type       = socket.AF_INET
     
     def __init__(self, config_file = None, hport = None, keyfile = None,
                  certfile = None, filename = None, external = False,
-                 downloads = 0):
+                 ipv6 = False, downloads = 0):
         
         if not filename:
             print 'need a filename!'
@@ -188,8 +269,8 @@ class woofs():
             hport   = random.randint(8000, 9000)
         
         # initialise http server
-        self.server = HTTPServer(port = hport, file = filename,
-                                 max_downloads = downloads)
+        self.server = HTTPServer(port = hport, file = filename, ipv6 = ipv6,
+                                 local = not external, max_downloads = downloads)
         # load keys - either via config file or key/cert files
         if not certfile and not keyfile and not certfile:
             # default case: use the default config file
@@ -222,7 +303,7 @@ class woofs():
         self.server.setup_ssl( keyfile = self.keyfile, certfile = self.certfile )
 
         print '[+] woofs listening on port %d...' % hport
-        
+        print '\twill serve %s %d times...' % ( filename, downloads )
     
     def __is_dir__(self, filename):
         # test if filename is a directory
@@ -309,9 +390,18 @@ class woofs():
         else:
             return k, c
 
+    def get_addr(self):
+        addr = None
+        
+        if self.external:
+            addr = self.server._get_local_addr()
+        else:
+            addr = self.server._get_external_addr()
+
+        print '[+] link: https://%s:%d' % (addr, self.server.port)
+
     def run(self):
         self.server.run()
-        self.server.shutdown()
 
 
 def setup_default_config():
@@ -346,5 +436,71 @@ def setup_default_config():
 
     
 if __name__ == '__main__':
-    pass
+    downloads = 1
+    filename  = None
+    port      = None
+    keyfile   = None
+    certfile  = None
+    config    = None
+    external  = False
+    ipv6      = False
+
+    # argument handling
+    parser = argparse.ArgumentParser(description = 'web onetime offer file ' +
+                                                   'securely')
+    parser.add_argument('-a', '--address', action = 'store_true',
+                        help = 'just display address that would be bound to')    
+    parser.add_argument('-c', '--config', help = 'optional path to config file')
+    parser.add_argument('-d', '--downloads', action = 'store',
+                        help = 'number of downloads to offer')
+    parser.add_argument('-e', '--external', action = 'store_true',
+                        help = 'use external IP address instead using a local '+
+                               'address')
+    parser.add_argument('-6', '--ipv6', action = 'store_true',
+                        help = 'use IPv6')
+    parser.add_argument('-k', '--key',  help = 'path to SSL private key')
+    parser.add_argument('-p', '--port', action = 'store',
+                        help = 'port to listen on')
+    parser.add_argument('-r', '--cert', help = 'path to SSL public certificate')
+    parser.add_argument('file', help = 'the file to serve')
+    args = parser.parse_args()
+
+    # build options
+    if args.config:
+        config = args.config
+
+    if args.port:
+        port   = int(args.port)
+
+    if args.downloads:
+        downloads = int(args.downloads)
+
+    if args.key:
+        keyfile = args.key
+    
+    if args.cert:
+        certfile = args.cert
+
+    if args.file:
+        filename = args.file
+
+    if args.external:
+        external = args.external
+
+    if args.ipv6:
+        ipv6 = args.ipv6
+    
+    w = woofs(config_file = config, hport = port, keyfile = keyfile,
+              certfile = certfile, filename = filename, downloads = downloads,
+              external = external, ipv6 = ipv6)
+
+    if args.address:
+        w.get_addr()
+    else:
+        w.run()
+
+    # el fin
+
+
+
     
