@@ -61,7 +61,7 @@ class HTTPServer():
 
 <body>
     <p>SSL cert fingerprint: %s</p>
-    <p>file: <a href="file/">%s</a></p>
+    <p>file: <a href="file/%s">%s</a></p>
 </body>
 </html>
     """
@@ -198,12 +198,13 @@ class HTTPServer():
         while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
         downloads  = 0
 
+        filename = os.path.basename(self.filename)
+
         if not self.secure:
             self.index = self.indextpl % 'NOT SSL'
         else:
             self.index = self.indextpl % (
-                'fingerprint support isn\'t working yet', 
-                os.path.basename(self.filename))
+                'fingerprint support isn\'t working yet', filename, filename)
 
         while eval(while_cond):
             client, addr = self.sock.accept()
