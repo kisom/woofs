@@ -13,14 +13,15 @@ python 2 version.
 # do a rewrite of the code
 
 import argparse
+import gzip
 import os
 import random
 import socket
 import ssl
+import StringIO
 import sys
 import time
 import urllib2
-import zlib
 
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
@@ -119,7 +120,7 @@ class HTTPServer():
         if compress:
             print '\t[+] compressing with zlib...'
             precompress = len(self.data)
-            self.data = zlib.compress(self.data)
+            self.data = self.compress_data()
             postcompress = len(self.data)
             print '\t[+] compressed %0.2f%% (from %d to %d bytes)...' % (
                 (1.0 * postcompress / precompress * 100), precompress, postcompress)
@@ -189,7 +190,17 @@ class HTTPServer():
                 time.sleep(2 * i)
             else:
                 return addr
-            
+
+    def compress_data(self):
+        sio     = StringIO.StringIO()
+        fn      = os.path.basename(self.filename)
+
+        gzipped = gzip.GzipFile(fn, mode = 'wb', fileobj = sio)
+        gzipped.write(self.data)
+        gzipped.close()
+
+        return sio.getvalue()
+    
     def setup_ssl(self, certfile = None, keyfile = None):
         if not self.secure or not certfile or not keyfile: return False
 
