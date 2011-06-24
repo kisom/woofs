@@ -42,10 +42,11 @@ class HTTPServer():
     external= None
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
-    index   = None                              # holds the index page
-    secure  = False                             # using SSL?
-    wrapper = None                              # the SSL wrapper function
-    keyfile = None                              # private key filename
+    index    = None                             # holds the index page
+    filename = None                             # filename for 
+    secure   = False                            # using SSL?
+    wrapper  = None                             # the SSL wrapper function
+    keyfile  = None                             # private key filename
     certfile = None                             # certificate filename
     
     maxdown = None 
@@ -61,7 +62,7 @@ class HTTPServer():
 
 <body>
     <p>SSL cert fingerprint: %s</p>
-    <p>file: <a href="file/">download</a></p>
+    <p>file: <a href="file/%s">%s</a></p>
 </body>
 </html>
     """
@@ -103,6 +104,7 @@ class HTTPServer():
         
         # load file to be served
         if filename:
+            self.filename = filename
             try:
                 f           = open(file)
                 self.data   = f.read()
@@ -200,10 +202,13 @@ class HTTPServer():
         while_cond = "True" if not self.maxdown else "downloads < self.maxdown"
         downloads  = 0
 
+        filename = os.path.basename(self.filename)
+
         if not self.secure:
             self.index = self.indextpl % 'NOT SSL'
         else:
-            self.index = self.indextpl % 'fingerprint support isn\'t working yet'
+            self.index = self.indextpl % (
+                'fingerprint support isn\'t working yet', filename, filename)
 
         while eval(while_cond):
             client, addr = self.sock.accept()
