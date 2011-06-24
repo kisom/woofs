@@ -118,7 +118,11 @@ class HTTPServer():
 
         if compress:
             print '\t[+] compressing with zlib...'
+            precompress = len(self.data)
             self.data = zlib.compress(self.data)
+            postcompress = len(self.data)
+            print '\t[+] compressed %0.2f%% (from %d to %d bytes)...' % (
+                (1.0 * postcompress / precompress * 100), precompress, postcompress)
             
         self.maxdown = max_downloads
 
