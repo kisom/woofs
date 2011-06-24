@@ -42,7 +42,7 @@ class HTTPServer():
     external= None
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
-    index    = None                             # holds the compre page
+    index    = None                             # holds the index page
     filename = None                             # filename for 
     secure   = False                            # using SSL?
     wrapper  = None                             # the SSL wrapper function
