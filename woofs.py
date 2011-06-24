@@ -42,7 +42,7 @@ class HTTPServer():
     external= None
     chunk   = 4096                              # number of bytes to send at a
                                                 # time
-    index    = None                             # holds the index page
+    index    = None                             # holds the compre page
     filename = None                             # filename for 
     secure   = False                            # using SSL?
     wrapper  = None                             # the SSL wrapper function
@@ -118,7 +118,7 @@ class HTTPServer():
 
         if compress:
             print '\t[+] compressing with zlib...'
-            data = zlib.compress(data)
+            self.data = zlib.compress(self.data)
             
         self.maxdown = max_downloads
 
@@ -203,6 +203,8 @@ class HTTPServer():
         downloads  = 0
 
         filename = os.path.basename(self.filename)
+        if compress:
+            filename += '.gz'
 
         if not self.secure:
             self.index = self.indextpl % 'NOT SSL'
