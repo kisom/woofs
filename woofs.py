@@ -20,6 +20,7 @@ import ssl
 import sys
 import time
 import urllib2
+import zlib
 
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
@@ -113,7 +114,10 @@ class HTTPServer():
             else:
                 f.close()
 
-
+        if compress:
+            print '\t[+] compressing with zlib...'
+            data = zlib.compress(data)
+            
         self.maxdown = max_downloads
 
     def _setup_socket(self):
@@ -461,6 +465,7 @@ if __name__ == '__main__':
     external  = False
     ipv6      = False
     disponly  = False
+    compress  = False
 
     # argument handling
     parser = argparse.ArgumentParser(description = 'web onetime offer file ' +
@@ -481,6 +486,8 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', action = 'store',
                         help = 'port to listen on')
     parser.add_argument('-r', '--cert', help = 'path to SSL public certificate')
+    parser.add_argument('-z', '--gzip', action = 'store_true', 
+                        help = 'use gzip / zlib compression on file.')
     parser.add_argument('file', nargs = '?', default = None,
                         help = 'the file to serve')
     args = parser.parse_args()
@@ -508,6 +515,8 @@ if __name__ == '__main__':
         exit(0)
     if args.ipv6:
         ipv6 = args.ipv6
+    if args.gzip:
+        compress = True
 
     print '[+] starting web onetime offer file securely...'
     w = woofs(config_file = config, hport = port, keyfile = keyfile,
