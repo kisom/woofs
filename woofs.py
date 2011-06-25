@@ -433,7 +433,21 @@ class woofs():
         else:
             addr = self.server._get_external_addr()
 
+        # build link
+        fn = os.path.basename(self.server.filename)
+        if compress:
+            fn += '.gz'
+        link = 'https://%s:%d/files/%s' % ( addr, self.server.port, fn)
+        curl = 'curl -k %s' % link
+        wget = 'wget --no-check-certificate %s' % link
+
+        # show link
         print '[+] link: https://%s:%d' % (addr, self.server.port)
+        print '[+] direct file download: '
+        print '\t%s' % link
+        print '\t%s' % curl
+        print '\t%s' % wget
+
 
     def run(self):
         print '[+] running https server...'
