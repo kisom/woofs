@@ -36,6 +36,8 @@ and certificate using --key and --cert to point to the files.
 by default, woofs uses the internal LAN address (i.e. 192.168.1.2). you can
 have it use your external IP address using --external.
 
+you can also use gzip compression by using the --gzip (or -z).
+
 the most likely cause of problems will be incorrect permissions - see the
 section on permissions below.
 
