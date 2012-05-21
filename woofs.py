@@ -43,7 +43,8 @@ class HTTPServer():
     chunk       = 4096                          # number of bytes to send at a
                                                 # time
     index       = None                          # holds the index page
-    filename    = None                          # path to file that will be served
+    filename    = None                          # path to file that will be 
+                                                # served
     secure      = False                         # using SSL?
     wrapper     = None                          # the SSL wrapper function
     keyfile     = None                          # private key filename
