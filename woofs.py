@@ -9,9 +9,6 @@ see the README.
 python 2 version.
 """
 
-# note: branched after commit f8e9bea1916da34d07c0e1e039936e8edc1e759f to
-# do a rewrite of the code
-
 import argparse
 import gzip
 import os
@@ -23,11 +20,13 @@ import sys
 import time
 import urllib2
 
+
 def err(err_message):
     sys.stderr.write('%s\n' % err_message)
 
 # constants
-confdir_base        = os.path.join('.config', 'woofs')
+CONFDIR_BASE        = os.path.join('.config', 'woofs')
+
 
 class HTTPServer():
     """
@@ -35,25 +34,24 @@ class HTTPServer():
     of the functionality required by woofs.
     """
     
-    sock    = None                              # server socket
-    sock_t  = None                              # server socket type
-    ipv6    = None                              # IPv6 support 
-    data    = None                              # stores the file to serve
-    port    = None                              # port to listen on
-    external= None
-    chunk   = 4096                              # number of bytes to send at a
+    sock        = None                          # server socket
+    sock_t      = None                          # server socket type
+    ipv6        = None                          # IPv6 support
+    data        = None                          # stores the file to serve
+    port        = None                          # port to listen on
+    external    = None
+    chunk       = 4096                          # number of bytes to send at a
                                                 # time
-    index    = None                             # holds the index page
-    filename = None                             # filename for 
-    secure   = False                            # using SSL?
-    wrapper  = None                             # the SSL wrapper function
-    keyfile  = None                             # private key filename
-    certfile = None                             # certificate filename
-    
-    maxdown = None 
+    index       = None                          # holds the index page
+    filename    = None                          # path to file that will be served
+    secure      = False                         # using SSL?
+    wrapper     = None                          # the SSL wrapper function
+    keyfile     = None                          # private key filename
+    certfile    = None                          # certificate filename
+    maxdown     = None                          # maximum number of downloads
 
     # the index template
-    indextpl= """
+    indextpl    = """Status: 200 OK\ncontent-type: text/html\n
 <!doctype html>
 <html>
 <head>
@@ -123,7 +121,8 @@ class HTTPServer():
             self.data = self.compress_data()
             postcompress = len(self.data)
             print '\t[+] compressed %0.2f%% (from %d to %d bytes)...' % (
-                (1.0 * postcompress / precompress * 100), precompress, postcompress)
+                (1.0 * postcompress / precompress * 100), precompress, 
+                 postcompress)
             
         self.maxdown = max_downloads
 
@@ -302,7 +301,8 @@ class woofs():
         
         # initialise http server
         self.server = HTTPServer(port = hport, file = filename, ipv6 = ipv6,
-                                 local = not external, max_downloads = downloads,
+                                 local = not external, 
+                                 max_downloads = downloads,
                                  no_file_override = no_file_override)
         # load keys - either via config file or key/cert files
         if not certfile and not keyfile and not certfile:
@@ -333,7 +333,7 @@ class woofs():
             sys.exit(1)
     
         self.server.secure = True
-        self.server.setup_ssl( keyfile = self.keyfile, certfile = self.certfile )
+        self.server.setup_ssl(keyfile = self.keyfile, certfile = self.certfile)
 
         print '[+] woofs listening on port %d...' % hport
         
@@ -459,13 +459,12 @@ class woofs():
         finally:
             print '[+] shutting down...'
 
-
 def setup_default_config():
     """
     sets up a default configuration file. on success, prints a success message.
     on failure, exits the program.
     """
-    conf_file   = os.path.join(os.path.expanduser('~'), confdir_base, 'config')
+    conf_file   = os.path.join(os.path.expanduser('~'), CONFDIR_BASE, 'config')
     
     if not os.access(os.path.basename(conf_file), os.W_OK):
         err('cannot write to %s' % os.path.basename(conf_file))
