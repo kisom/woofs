@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Woofs by kisom</title>
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script src="javascripts/respond.js"></script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <!--[if lt IE 8]>
+    <link rel="stylesheet" href="stylesheets/ie.css">
+    <![endif]-->
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+
+  </head>
+  <body>
+      <div id="header">
+        <nav>
+          <li class="fork"><a href="https://github.com/kisom/woofs">View On GitHub</a></li>
+          <li class="downloads"><a href="https://github.com/kisom/woofs/zipball/master">ZIP</a></li>
+          <li class="downloads"><a href="https://github.com/kisom/woofs/tarball/master">TAR</a></li>
+          <li class="title">DOWNLOADS</li>
+        </nav>
+      </div><!-- end header -->
+
+    <div class="wrapper">
+
+      <section>
+        <div id="title">
+          <h1>Woofs</h1>
+          <p>web one-time offer file securely</p>
+          <hr>
+          <span class="credits left">Project maintained by <a href="https://github.com/kisom">kisom</a></span>
+          <span class="credits right">Hosted on GitHub Pages &mdash; Theme by <a href="http://twitter.com/#!/michigangraham">mattgraham</a></span>
+        </div>
+
+        <h2>Web Onetime Offer File Securely</h2>
+
+<p>author: <a href="http://www.kyleisom.net">Kyle Isom</a></p>
+
+<h3>quick overview</h3>
+
+<p>python program behaving the same as the woof script written by 
+<a href="http://www.home.unix-ag.org/simon/">Simon Budig</a> but providing SSL encryption.</p>
+
+<p>license: dual ISC / public domain license. see <code>LICENSE</code>.</p>
+
+<hr><p>what does it do?
+woofs allows you to quickly offer a file for download on your machine. it offers
+the ability to select the port and number of times the file can be downloaded
+before the HTTPS server shuts down (which defaults to 1).</p>
+
+<p>dependencies:</p>
+
+<ul>
+<li>argparse</li>
+</ul><hr><h3>how do i use it?</h3>
+
+<p>the simplest way is to use something like this:</p>
+
+<div class="highlight"><pre>./woofs.py --port 443 --downloads 2 file.tar.bz
+</pre></div>
+
+<p>this looks for a configuration file at <code>${HOME}/.config/woofs/config</code> which should
+look something like:</p>
+
+<div class="highlight"><pre>cat ~/.config/woofs/config
+key: /etc/ssl/private/server.key
+cert: /etc/ssl/server.crt
+</pre></div>
+
+<p>you can also specify a configuration file using the <code>--config</code> option, or a key
+and certificate using <code>--key</code> and <code>--cert</code> to point to the files.</p>
+
+<p>by default, woofs uses the internal LAN address (i.e. 192.168.1.2). you can
+have it use your external IP address using <code>--external</code>.</p>
+
+<p>you can also use gzip compression by using the <code>--gzip</code> (or <code>-z</code>).</p>
+
+<p>the most likely cause of problems will be incorrect permissions - see the
+section on permissions below.</p>
+
+<h3>how do i generate ssl keys?</h3>
+
+<div class="highlight"><pre>openssl genrsa -out ~/.woofs/server.key 2048
+openssl req -new -key ~/.woofs/server.key -out ~/.woofs/server.csr
+</pre></div>
+
+<p>at this point you have two options -</p>
+
+<ol>
+<li>submit the certificate signature request to a trusted CA, who will give
+you a signed certificate in exchange for money, or</li>
+<li>self-sign your certificate. there are a number of security issues here
+but the easiest way around them is to have the end-user verify the SSL
+fingerprint.</li>
+</ol><p>if you choose to self-sign, at this point you would need to issue the following:</p>
+
+<div class="highlight"><pre>openssl x509 -req -days 365 -in ~/.woofs/server.csr <span class="se">\</span>
+  -signkey ~/.woofs/server.key -out ~/.woofs/server.crt
+</pre></div>
+
+<h3>a note on file permissions</h3>
+
+<p>it is critical that <code>~/.woofs</code> (or whatever folder you put the key in) must have
+secure permissions: i recommend the files inside have a mode of <code>0600</code>, and the
+directory have the permissions of <code>0700</code>.</p>
+
+<p>Files need to have secure permissions; the private files (<code>config</code> and the
+private key) should be <code>0400</code> or <code>0600</code>, while public files should be <code>644</code>.</p>
+      </section>
+
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><!--<![endif]-->
+    
+  </body>
+</html>
